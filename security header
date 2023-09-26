@@ -7,3 +7,64 @@ add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; prelo
     add_header Referrer-Policy "strict-origin-when-cross-origin";
     add_header Permissions-Policy "geolocation=self";
     add_header Cache-Control "max-age=0, no-cache, no-store, must-revalidate";
+
+
+// Add in functions.php file CSRF TOKEN 
+
+ADD the [csrf_token csrf_token] in cf7 above the code then it will start
+
+			add_action('tokengen_csrf', 'security_enhacement_generate_csrf_fn');
+			function security_enhacement_generate_csrf_fn()
+			{   
+				session_start();
+        $_SESSION['token'] = bin2hex(random_bytes(32));
+        
+        //error_log("CSRF Token :  ". $_SESSION['egs_csrf_token']. "\n", 3, "/var/log/nginx/error.log");
+    
+	// $filepath=__DIR__.'/tokendata.txt';
+    // $fp = fopen($filepath, 'a');    
+    // fwrite($fp, $_SESSION['token'].PHP_EOL);   
+    // fclose($fp);
+				// session_start();
+			    // $_SESSION['token'] = bin2hex(random_bytes(32));
+			}
+			do_action('tokengen_csrf');
+			add_action( 'wpcf7_init', 'wpcf7_add_csrf_tag_text', 10, 0 );
+
+			function wpcf7_add_csrf_tag_text() 
+			{
+				wpcf7_add_form_tag(
+					'csrf_token',
+					'wpcf7_text_csrf_tag_handler', array( 'name-attr' => true ) );
+			}
+
+			function wpcf7_text_csrf_tag_handler( $tag ) 
+			{	
+				//session_start();
+				$session_token = $_SESSION['token'];
+				$name = $tag['name'];
+				if (empty($name)) return '';
+				$html = '<div class="form-group csrf_field">';
+				$html .= '<span class="wpcf7-form-control-wrap ' . $name . '">';
+				$html .= '<input type="hidden"  name="' . $name . '"  value="'. $session_token .'" />';
+				$html .= '</span>';
+				$html .= '</div>';
+				return $html;
+			}
+
+			add_filter( 'wpcf7_validate_csrf_token', 'custom_csrf_validation_filter', 20, 2 );
+
+			function custom_csrf_validation_filter( $result, $tag ) 
+			{	
+				if($tag->name == 'csrf_token') :	
+					session_start();
+					$session_token = $_SESSION['token'];
+					$your_csrf_token = isset( $_POST['csrf_token'] ) ? trim( $_POST['csrf_token'] ) : '';
+					if ( !hash_equals($session_token, $your_csrf_token)) 
+					{					
+						$result->invalidate($tag, "Something went wrong, Please try again after refresing page.");
+					}
+				endif;
+				return $result;
+			}
+		}
